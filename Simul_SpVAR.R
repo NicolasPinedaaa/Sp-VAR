@@ -2,10 +2,10 @@
 ####    S-VAR     ####
 
 #PAQUETES
-#require()
+require(abind)
 
 set.seed(123)
-
+####
 #FUNCIONES
 generar_datos <- function(t, K, N) {
   # Crear un array vacío para almacenar los datos
@@ -74,26 +74,29 @@ W   = generar_matriz_contiguidad(N)
 
 #Generar los vectores Nx1
 Y.ast = array(NA, dim = c(T, K, N),dimnames=list(paste0("t", 1:T),
-                                                 paste0("Var", 1:K),
+                                                 paste0("Var", 1:K,"ast"),
                                                  paste0("Reg", 1:N)))
 for (t in 1:T){
   for (k in 1:K)
     Y.ast[t,k,] = W%*%Y[t,k,]
 }
+data <- abind(Y, Y.ast, along = 2)
 
-###Loop t-1
-for (p in 1:P) {
-  # Crear un nuevo array para almacenar las variables retrasadas
-  Y_Lag <- array(NA, dim = dim(Y),dimnames=list(paste0("t", 1:T),
-                                                paste0("Var", 1:K),
-                                                paste0("Reg", 1:N)))
-  
-  # Aplicar el retraso en cada dimensión
-  for (t in 1:(T-p)) {
-    Y_Lag[t + p, , ] <- Y[t, , ]
+# Bucle para crear matrices retrasadas y sumarlas a data
+Y.Lag <- array(NA, dim = c(T, K*P, N),dimnames=list(paste0("t", 1:T),
+                                                   paste0("Var", 1:K,".lag",p),
+                                                   paste0("Reg", 1:N)))
+Y.ast.Lag <- array(NA, dim = c(T, K*P, N),dimnames=list(paste0("t", 1:T),
+                                                        paste0("Var", 1:K,".ast.lag",p),
+                                                        paste0("Reg", 1:N)))
+for (p in 1:P) {  
+  for (t in 1:T) {
+    if (t - p > 0) {
+      Y_Lag[t, , ] <- Y[t - p, , ]
+    }
   }
-  assign(paste0("Ylag_", p), Y_Lag)
 }
+
 for (p in 1:P) {
   # Crear un nuevo array para almacenar las variables retrasadas
   Yast_Lag <- array(NA, dim = dim(Y),dimnames=list(paste0("t", 1:T),
