@@ -62,8 +62,8 @@ generar_matriz_contiguidad <- function(num_regiones) {
 # PARÁMETROS
 N  = 4  # Regiones
 K  = 2  # Variables
-T = 10 #Tiempo
-p  = 1  #Rezagos
+T = 20 #Tiempo
+P  = 1  #Rezagos
 
 
 # Generar las series de tiempo
@@ -78,8 +78,80 @@ Y.ast = array(NA, dim = c(T, K, N),dimnames=list(paste0("t", 1:T),
                                                  paste0("Reg", 1:N)))
 for (t in 1:T){
   for (k in 1:K)
-    Y.ast[t,k,] = W%*%series_tiempo[t,k,]
+    Y.ast[t,k,] = W%*%Y[t,k,]
 }
 
 ###Loop t-1
+for (p in 1:P) {
+  # Crear un nuevo array para almacenar las variables retrasadas
+  Y_Lag <- array(NA, dim = dim(Y),dimnames=list(paste0("t", 1:T),
+                                                paste0("Var", 1:K),
+                                                paste0("Reg", 1:N)))
+  
+  # Aplicar el retraso en cada dimensión
+  for (t in 1:(T-p)) {
+    Y_Lag[t + p, , ] <- Y[t, , ]
+  }
+  assign(paste0("Ylag_", p), Y_Lag)
+}
+for (p in 1:P) {
+  # Crear un nuevo array para almacenar las variables retrasadas
+  Yast_Lag <- array(NA, dim = dim(Y),dimnames=list(paste0("t", 1:T),
+                                                paste0("Var", 1:K),
+                                                paste0("Reg", 1:N)))
+  
+  # Aplicar el retraso en cada dimensión
+  for (t in 1:(T-p)) {
+    Yast_Lag[t + p, , ] <- Y.ast[t, , ]
+  }
+  assign(paste0("Yastlag_", p), Yast_Lag)
+}
 
+# Crear una lista para almacenar los dataframes por cada [,k,n]
+df_list <- list()
+
+
+for (k in 1:K) {
+  for (n in 1:N) {
+    # Crear un dataframe combinando los arrays para [,k,n]
+    df <- data.frame(Y = Y[, k, n], 
+                     Y.ast = Y.ast[, k, n])
+    
+    # Agregar las columnas para los lags de Y
+    for (p in 1:P) {
+      df[paste0("Ylag_", p)] <- get(paste0("Ylag_", p))[, k, n]  # Acceder directamente a los valores de Y
+    }
+    
+    # Agregar las columnas para los lags de Y.ast
+    for (p in 1:P) {
+      df[paste0("Yastlag_", p)] <- get(paste0("Yastlag_", p))[, k, n]  # Acceder a cada Yastlag_p
+    }
+    
+    # Eliminar filas con NA
+    df <- na.omit(df)
+    
+    # Guardar el dataframe en la lista
+    df_list[[paste("k", k, "n", n, sep = "_")]] <- df
+  }
+}
+
+modelo_list=list()
+for (k in 1:K) {
+  for (n in 1:N) {
+    # Seleccionar el dataframe correspondiente a [,k,n] de la lista df_list
+    df <- df_list[[paste("k", k, "n", n, sep = "_")]]
+    
+    # Crear una fórmula dinámica para incluir las variables lag
+    formula <- as.formula(paste("Y ~", 
+                                paste0("Ylag_", 1:P, collapse = "+"), "+", 
+                                paste0("Y.ast +", 
+                                       paste0("Yastlag_", 1:P, collapse = " + "), 
+                                       collapse = " + ")))
+    
+    # Ajustar el modelo lineal utilizando el dataframe df
+    modelo <- lm(formula, data = df)
+    
+    # Almacenar los coeficientes del modelo en la lista
+    modelo_list[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
+  }
+}
