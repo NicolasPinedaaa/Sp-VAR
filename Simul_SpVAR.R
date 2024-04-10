@@ -3,6 +3,8 @@
 
 #PAQUETES
 require(abind)
+require(sandwich)
+require(AER)
 
 set.seed(123)
 ####
@@ -33,7 +35,7 @@ generar_datos <- function(t, K, N) {
   }
   
   return(datos)
-}
+} #Función generadora de datos
 generar_matriz_contiguidad <- function(num_regiones) {
   # Crear una matriz de contigüidad inicializada con ceros
   matriz_contiguidad <- matrix(0, nrow = num_regiones, ncol = num_regiones)
@@ -55,15 +57,14 @@ generar_matriz_contiguidad <- function(num_regiones) {
   diag(matriz_contiguidad) <- 0
   
   return(matriz_contiguidad)
-}
-
+} #Función generadora de la matriz de contiguidad
 
 
 # PARÁMETROS
 N  = 4  # Regiones
 K  = 2  # Variables
-T = 20 #Tiempo
-P  = 1  #Rezagos
+T  = 20 #Tiempo
+P  = 2  #Rezagos
 
 
 # Generar las series de tiempo
@@ -74,7 +75,7 @@ W   = generar_matriz_contiguidad(N)
 
 #Generar los vectores Nx1
 Y.ast = array(NA, dim = c(T, K, N),dimnames=list(paste0("t", 1:T),
-                                                 paste0("Var", 1:K,"ast"),
+                                                 paste0("Var.ast", 1:K),
                                                  paste0("Reg", 1:N)))
 for (t in 1:T){
   for (k in 1:K)
@@ -82,79 +83,147 @@ for (t in 1:T){
 }
 data <- abind(Y, Y.ast, along = 2)
 
-# Bucle para crear matrices retrasadas y sumarlas a data
+# Bucle para crear matrices retrasadas y agregarlas a <data>
+lab.vars.lag = NULL; lab.vars.ast.lag = NULL; lab.var.hat.ast.lag = NULL
+for(p in 1:P){
+  lab.vars.lag        = c(lab.vars.lag, paste0("Var", 1:K,".lag",p))
+  lab.vars.ast.lag    = c(lab.vars.ast.lag, paste0("Var.ast", 1:K,".lag",p))
+  lab.var.hat.ast.lag = c(lab.var.hat.ast.lag, paste0("Var.ast.hat", 1:K,".lag",p))
+}
+
 Y.Lag <- array(NA, dim = c(T, K*P, N),dimnames=list(paste0("t", 1:T),
-                                                   paste0("Var", 1:K,".lag",p),
-                                                   paste0("Reg", 1:N)))
+                                                    lab.vars.lag,
+                                                    paste0("Reg", 1:N)))
 Y.ast.Lag <- array(NA, dim = c(T, K*P, N),dimnames=list(paste0("t", 1:T),
-                                                        paste0("Var", 1:K,".ast.lag",p),
+                                                        lab.vars.ast.lag,
                                                         paste0("Reg", 1:N)))
+
+# Crear un nuevo array para almacenar las variables retrasadas
 for (p in 1:P) {  
-  for (t in 1:T) {
-    if (t - p > 0) {
-      Y_Lag[t, , ] <- Y[t - p, , ]
-    }
-  }
+  for (t in (p+1):T){ 
+    Y.Lag[t,(K*(p-1)+1):(K*p) , ]     = Y[t-p, , ]
+    Y.ast.Lag[t,(K*(p-1)+1):(K*p) , ] = Y.ast[t-p, , ]
+  }    
 }
+data <- abind(data, Y.Lag, Y.ast.Lag, along = 2)
 
-for (p in 1:P) {
-  # Crear un nuevo array para almacenar las variables retrasadas
-  Yast_Lag <- array(NA, dim = dim(Y),dimnames=list(paste0("t", 1:T),
-                                                paste0("Var", 1:K),
-                                                paste0("Reg", 1:N)))
-  
-  # Aplicar el retraso en cada dimensión
-  for (t in 1:(T-p)) {
-    Yast_Lag[t + p, , ] <- Y.ast[t, , ]
-  }
-  assign(paste0("Yastlag_", p), Yast_Lag)
-}
+# modelo_list=list()
+# for (k in 1:K) {
+#   for (n in 1:N) {
+#     # Estimacion del modelo lineal
+#     # modelo = lm(data[, paste0('Var',k), n] ~ data[, paste0("Var",k,".lag",1:P), n] +
+#     #               data[, paste0('Var.ast',k), n] + data[, paste0("Var.ast",k,".lag",1:P), n])
+#     modelo = lm(data[, paste0('Var',k), n] ~ data[, paste0("Var",1:K)[-k], n] + data[, lab.vars.lag, n] +
+#                   data[, paste0("Var.ast",1:K), n] + data[,lab.vars.ast.lag , n])
+#     # Almacenar los coeficientes del modelo en la lista
+#     modelo_list[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
+#   }
+# }
 
-# Crear una lista para almacenar los dataframes por cada [,k,n]
-df_list <- list()
 
+# Ecuación 30
+# Y.ast.hat.temp    = list()
+Y.ast.hat         = array(NA, dim = c(T, K, N),dimnames=list(paste0("t", 1:T),
+                                                             paste0("Var.ast.hat", 1:K),
+                                                             paste0("Reg", 1:N)))
 
 for (k in 1:K) {
   for (n in 1:N) {
-    # Crear un dataframe combinando los arrays para [,k,n]
-    df <- data.frame(Y = Y[, k, n], 
-                     Y.ast = Y.ast[, k, n])
-    
-    # Agregar las columnas para los lags de Y
-    for (p in 1:P) {
-      df[paste0("Ylag_", p)] <- get(paste0("Ylag_", p))[, k, n]  # Acceder directamente a los valores de Y
-    }
-    
-    # Agregar las columnas para los lags de Y.ast
-    for (p in 1:P) {
-      df[paste0("Yastlag_", p)] <- get(paste0("Yastlag_", p))[, k, n]  # Acceder a cada Yastlag_p
-    }
-    
-    # Eliminar filas con NA
-    df <- na.omit(df)
-    
-    # Guardar el dataframe en la lista
-    df_list[[paste("k", k, "n", n, sep = "_")]] <- df
+    modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] + data[,lab.vars.ast.lag , n])
+    # Almacenar los coeficientes del modelo en la lista
+    Y.ast.hat[c(-1,-2),k,n] = predict(modelo)
   }
 }
 
-modelo_list=list()
+# for (k in 1:K) {
+#   for (n in 1:N) {
+#     modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] + data[,lab.vars.ast.lag , n])
+#     # Almacenar los coeficientes del modelo en la lista
+#     Y.ast.hat.temp[[paste("k", k, "n", n, sep = "_")]] = predict(modelo)
+#   }
+# }
+
+# temp = T-P
+# temporal = K*N
+# temp.temp1 = unlist(Y.ast.hat.temp)[1:(1*temp)]
+# # Crear una lista vacía para almacenar los resultados
+# temp_results <- list()
+# temp_results[[temp.temp1]] = temp.temp1
+# # Iterar sobre el rango de 2 a temporal
+# for (t in 2:temporal) {
+#   # Generar el nombre del elemento de la lista
+#   temp_name = paste0("temp.temp", t)
+#   
+#   # Almacenar el resultado en la lista
+#   temp_results[[temp_name]] = unlist(Y.ast.hat.temp)[((t-1)*temp):(t*temp)]
+# }
+# 
+# for (t in 1:temporal){}
+
+# for (t in 1:T){
+#   if (t < P+1){
+#     Y.ast.hat[t,,] <- NA
+#   } else {
+#     Y.ast.hat[t,,] <- unlist(Y.ast.hat.temp)
+#   }
+# }
+# Y.ast.hat <- aperm(array(unlist(Y.ast.hat.temp), dim = dim(Y.ast.hat[t,,])))
+# for (t in 1:T){
+#   if (t>P){
+#     # Y.ast.hat[t,,] <- aperm(array(unlist(Y.ast.hat.temp), dim = dim(Y.ast.hat[t,,])))
+#     Y.ast.hat[t,,] <- aperm(array(unlist(Y.ast.hat.temp), dim = dim(Y.ast.hat[t,,])))
+#   }
+# }
+
+
+
+
+for (t in 1:T){
+  for (k in 1:K)
+    Y.ast.hat[t,k,] = W%*%Y.ast.hat[t,k,]
+}
+
+Y.ast.hat.lag <- array(NA, dim = c(T, K*P, N),dimnames=list(paste0("t", 1:T),
+                                                            lab.var.hat.ast.lag,
+                                                            paste0("Reg", 1:N)))
+for (p in 1:P) {  
+  for (t in (p+1):T)
+    Y.ast.hat.lag[t,(K*(p-1)+1):(K*p) , ] = Y.ast.hat[t-p, , ]
+}
+data <- abind(data, Y.ast.hat, Y.ast.hat.lag, along = 2)
+
+#Ecuacion 16a
+coef.modelo = list()
+list.cov = list()
+#LM
 for (k in 1:K) {
   for (n in 1:N) {
-    # Seleccionar el dataframe correspondiente a [,k,n] de la lista df_list
-    df <- df_list[[paste("k", k, "n", n, sep = "_")]]
-    
-    # Crear una fórmula dinámica para incluir las variables lag
-    formula <- as.formula(paste("Y ~", 
-                                paste0("Ylag_", 1:P, collapse = "+"), "+", 
-                                paste0("Y.ast +", 
-                                       paste0("Yastlag_", 1:P, collapse = " + "), 
-                                       collapse = " + ")))
-    
-    # Ajustar el modelo lineal utilizando el dataframe df
-    modelo <- lm(formula, data = df)
+    modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] + 
+                  data[, paste0("Var.ast.hat",1:K), n] +
+                  data[,lab.var.hat.ast.lag , n])
+    # Almacenar los coeficientes del modelo en la lista
+    coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
+    list.cov[[paste("k", k, "n", n, sep = "_")]] <- sqrt(diag(vcovHC(modelo)))
+  }
+}
+
+#IVREG
+for (k in 1:K) {
+  for (n in 1:N) {
+    # Modelo con variables instrumentales
+    data_df <- as.data.frame(data)
+    modelo <- ivreg(data[, paste0('Var', k), n] ~ data[, lab.vars.lag, n]  
+                    | data[, paste0("Var.ast.hat",1:K), n] +
+                      data[, lab.var.hat.ast.lag , n], data = data_df)
     
     # Almacenar los coeficientes del modelo en la lista
-    modelo_list[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
+    coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
+    
+    # Calcular intervalos de confianza para los coeficientes
+    intervalos_confianza <- confint(modelo)
+    print(intervalos_confianza)  # Esto imprimirá los intervalos de confianza en la consola
   }
 }
+#FUNCION DE IMPULSO RESPUESTA
+
+
