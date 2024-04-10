@@ -71,7 +71,7 @@ P  = 2  #Rezagos
 Y = generar_datos(T, K, N)
 
 # Generar la matriz de contigüidad
-W   = generar_matriz_contiguidad(N)
+W = generar_matriz_contiguidad(N)
 
 #Generar los vectores Nx1
 Y.ast = array(NA, dim = c(T, K, N),dimnames=list(paste0("t", 1:T),
