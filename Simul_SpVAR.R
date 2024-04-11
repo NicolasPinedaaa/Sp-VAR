@@ -7,7 +7,7 @@ require(sandwich)
 require(AER)
 
 set.seed(123)
-####
+#-----------------------------------------------#
 #FUNCIONES
 generar_datos <- function(t, K, N) {
   # Crear un array vacío para almacenar los datos
