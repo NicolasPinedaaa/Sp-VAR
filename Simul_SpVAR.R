@@ -9,6 +9,7 @@ require(AER)
 set.seed(123)
 #-----------------------------------------------#
 #FUNCIONES
+#-----------------------------------------------#
 generar_datos <- function(t, K, N) {
   # Crear un array vacío para almacenar los datos
   datos <- array(NA, dim = c(t, K, N))
