@@ -147,6 +147,7 @@ for (k in 1:K) {
     modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] +
                   data[, paste0("Var.ast.hat",1:K), n] +
                   data[,lab.var.hat.ast.lag , n])
+    
     # Almacenar los coeficientes del modelo en la lista
     # coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
     i=i+1
@@ -175,20 +176,25 @@ for (k in 1:K) {
 # }
 #FUNCION DE IMPULSO RESPUESTA
 wkron = kronecker(diag(K),W)
+# for (k in 1:K){
+#   paste0("theta",k) = array(coef.modelo[,(1 + (P * K) + k)], dim = c(N,K),
+#                             dimnames=list(paste0("Reg", 1:N),paste0("Var", 1:K)))
+#   paste0("theta",k) = kronecker(diag(K),paste0("theta",k))
+# }
 
-for (k in 1:K){
-  paste0("theta",k) = array(coef.modelo[,(1 + (P * K) + k)], dim = c(N,K),
-                            dimnames=list(paste0("Reg", 1:N),paste0("Var", 1:K)))
-  paste0("theta",k) = kronecker(diag(K),paste0("theta",k))
-}
+theta1 = array(coef.modelo[,(1 + (P * K) + 1)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
+                                            paste0("Var", 1:K)))
+theta1 = kronecker(diag(K),theta1)
 
+theta2 = array(coef.modelo[,(1 + (P * K) + K)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
+                                                                           paste0("Var", 1:K)))
+theta2 = kronecker(diag(K),theta2)
 theta=cbind(theta1,theta2)
 
-beta1 = array(coef.modelo[,(1 + 1)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
+for (i in K*p){
+  beta1 = array(coef.modelo[,(1 + 1)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
+                                                                paste0("Var", 1:K)))
+  beta1 = kronecker(diag(K),beta1)
+  beta1 = array(coef.modelo[,(1 + 1)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
                                                                 paste0("Var", 1:K)))
 beta1 = kronecker(diag(K),beta1)
-
-beta2 = array(coef.modelo[,(1 + (P * K) + K)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
-                                                                           paste0("Var", 1:K)))
-beta2 = kronecker(diag(K),beta2)
-beta=cbind(beta1,beta2)
