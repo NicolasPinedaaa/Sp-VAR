@@ -108,20 +108,6 @@ for (p in 1:P) {
 }
 data <- abind(data, Y.Lag, Y.ast.Lag, along = 2)
 
-# modelo_list=list()
-# for (k in 1:K) {
-#   for (n in 1:N) {
-#     # Estimacion del modelo lineal
-#     # modelo = lm(data[, paste0('Var',k), n] ~ data[, paste0("Var",k,".lag",1:P), n] +
-#     #               data[, paste0('Var.ast',k), n] + data[, paste0("Var.ast",k,".lag",1:P), n])
-#     modelo = lm(data[, paste0('Var',k), n] ~ data[, paste0("Var",1:K)[-k], n] + data[, lab.vars.lag, n] +
-#                   data[, paste0("Var.ast",1:K), n] + data[,lab.vars.ast.lag , n])
-#     # Almacenar los coeficientes del modelo en la lista
-#     modelo_list[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
-#   }
-# }
-
-
 # Ecuación 30
 # Y.ast.hat.temp    = list()
 Y.ast.hat         = array(NA, dim = c(T, K, N),dimnames=list(paste0("t", 1:T),
@@ -135,49 +121,6 @@ for (k in 1:K) {
     Y.ast.hat[c(-1,-2),k,n] = predict(modelo)
   }
 }
-
-# for (k in 1:K) {
-#   for (n in 1:N) {
-#     modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] + data[,lab.vars.ast.lag , n])
-#     # Almacenar los coeficientes del modelo en la lista
-#     Y.ast.hat.temp[[paste("k", k, "n", n, sep = "_")]] = predict(modelo)
-#   }
-# }
-
-# temp = T-P
-# temporal = K*N
-# temp.temp1 = unlist(Y.ast.hat.temp)[1:(1*temp)]
-# # Crear una lista vacía para almacenar los resultados
-# temp_results <- list()
-# temp_results[[temp.temp1]] = temp.temp1
-# # Iterar sobre el rango de 2 a temporal
-# for (t in 2:temporal) {
-#   # Generar el nombre del elemento de la lista
-#   temp_name = paste0("temp.temp", t)
-#   
-#   # Almacenar el resultado en la lista
-#   temp_results[[temp_name]] = unlist(Y.ast.hat.temp)[((t-1)*temp):(t*temp)]
-# }
-# 
-# for (t in 1:temporal){}
-
-# for (t in 1:T){
-#   if (t < P+1){
-#     Y.ast.hat[t,,] <- NA
-#   } else {
-#     Y.ast.hat[t,,] <- unlist(Y.ast.hat.temp)
-#   }
-# }
-# Y.ast.hat <- aperm(array(unlist(Y.ast.hat.temp), dim = dim(Y.ast.hat[t,,])))
-# for (t in 1:T){
-#   if (t>P){
-#     # Y.ast.hat[t,,] <- aperm(array(unlist(Y.ast.hat.temp), dim = dim(Y.ast.hat[t,,])))
-#     Y.ast.hat[t,,] <- aperm(array(unlist(Y.ast.hat.temp), dim = dim(Y.ast.hat[t,,])))
-#   }
-# }
-
-
-
 
 for (t in 1:T){
   for (k in 1:K)
@@ -206,7 +149,7 @@ for (k in 1:K) {
                   data[,lab.var.hat.ast.lag , n])
     # Almacenar los coeficientes del modelo en la lista
     # coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
-    i=1+i
+    i=i+1
     coef.modelo[i,] <- coef(modelo)
     # list.cov[[paste("k", k, "n", n, sep = "_")]] <- sqrt(diag(vcovHC(modelo)))
   }
@@ -231,8 +174,21 @@ for (k in 1:K) {
 #   }
 # }
 #FUNCION DE IMPULSO RESPUESTA
-#y=solve(diag(4)-(coef.modelo[1:4,6]*W))*(coef.modelo[1:4,2]+(coef.modelo[1:4,8]*W))
-inv=solve( diag(4)-(coef.modelo[,6]*W))
-irf=(coef.modelo[,1]/inv)+(inv*coef.modelo[,6])
+wkron = kronecker(diag(K),W)
 
-# y=solve(diag(K*N)-coef.modelo[,3])
+for (k in 1:K){
+  paste0("theta",k) = array(coef.modelo[,(1 + (P * K) + k)], dim = c(N,K),
+                            dimnames=list(paste0("Reg", 1:N),paste0("Var", 1:K)))
+  paste0("theta",k) = kronecker(diag(K),paste0("theta",k))
+}
+
+theta=cbind(theta1,theta2)
+
+beta1 = array(coef.modelo[,(1 + 1)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
+                                                                paste0("Var", 1:K)))
+beta1 = kronecker(diag(K),beta1)
+
+beta2 = array(coef.modelo[,(1 + (P * K) + K)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
+                                                                           paste0("Var", 1:K)))
+beta2 = kronecker(diag(K),beta2)
+beta=cbind(beta1,beta2)
