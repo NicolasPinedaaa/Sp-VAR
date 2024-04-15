@@ -194,37 +194,45 @@ for (p in 1:P) {
 data <- abind(data, Y.ast.hat, Y.ast.hat.lag, along = 2)
 
 #Ecuacion 16a
-coef.modelo = list()
+#coef.modelo = list()
+coef.modelo = array(NA, dim = c(K*N,11))
 list.cov = list()
 #LM
+i=0
 for (k in 1:K) {
   for (n in 1:N) {
-    modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] + 
+    modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] +
                   data[, paste0("Var.ast.hat",1:K), n] +
                   data[,lab.var.hat.ast.lag , n])
     # Almacenar los coeficientes del modelo en la lista
-    coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
-    list.cov[[paste("k", k, "n", n, sep = "_")]] <- sqrt(diag(vcovHC(modelo)))
+    # coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
+    i=1+i
+    coef.modelo[i,] <- coef(modelo)
+    # list.cov[[paste("k", k, "n", n, sep = "_")]] <- sqrt(diag(vcovHC(modelo)))
   }
 }
+
 
 #IVREG
-for (k in 1:K) {
-  for (n in 1:N) {
-    # Modelo con variables instrumentales
-    data_df <- as.data.frame(data)
-    modelo <- ivreg(data[, paste0('Var', k), n] ~ data[, lab.vars.lag, n]  
-                    | data[, paste0("Var.ast.hat",1:K), n] +
-                      data[, lab.var.hat.ast.lag , n], data = data_df)
-    
-    # Almacenar los coeficientes del modelo en la lista
-    coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
-    
-    # Calcular intervalos de confianza para los coeficientes
-    intervalos_confianza <- confint(modelo)
-    print(intervalos_confianza)  # Esto imprimirá los intervalos de confianza en la consola
-  }
-}
+# for (k in 1:K) {
+#   for (n in 1:N) {
+#     # Modelo con variables instrumentales
+#     data_df <- as.data.frame(data)
+#     modelo <- ivreg(data[, paste0('Var', k), n] ~ data[, lab.vars.lag, n]  
+#                     | data[, paste0("Var.ast.hat",1:K), n] +
+#                       data[, lab.var.hat.ast.lag , n], data = data_df)
+#     
+#     # Almacenar los coeficientes del modelo en la lista
+#     coef.modelo[k*n,] <- coef(modelo)
+#     
+#     # Calcular intervalos de confianza para los coeficientes
+#     intervalos_confianza <- confint(modelo)
+#     print(intervalos_confianza)  # Esto imprimirá los intervalos de confianza en la consola
+#   }
+# }
 #FUNCION DE IMPULSO RESPUESTA
+#y=solve(diag(4)-(coef.modelo[1:4,6]*W))*(coef.modelo[1:4,2]+(coef.modelo[1:4,8]*W))
+inv=solve( diag(4)-(coef.modelo[,6]*W))
+irf=(coef.modelo[,1]/inv)+(inv*coef.modelo[,6])
 
-
+# y=solve(diag(K*N)-coef.modelo[,3])
