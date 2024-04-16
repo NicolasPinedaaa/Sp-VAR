@@ -139,25 +139,29 @@ data <- abind(data, Y.ast.hat, Y.ast.hat.lag, along = 2)
 
 #Ecuacion 16a
 #coef.modelo = list()
+coef.Mu     = array(NA, dim=c(K,N), dimnames=list(paste0("Var",1:K),paste0("Reg",1:N)))
+coef.Beta   = array(NA, dim=c(K,K*P,N), dimnames=list(paste0("Var.",1:K), lab.vars.lag, paste0("Reg",1:N)))
+coef.Theta  = array(NA, dim=c(K,K,N),dimnames=list(paste0("Var.ast.hat",1:K),paste0("Var.ast.hat",1:K), paste0("Reg", 1:N)))
+coef.Lambda = array(NA, dim=c(K,K*P,N), dimnames=list(paste0("Var.",1:K), lab.var.hat.ast.lag, paste0("Reg",1:N)))
 num.coef = 1 + K + (K*P) + (K*P)
-# coef.modelo = array(NA, dim = c(K,N,num.coef))
-list.cov = list()
 #LM
-i=0
 for (k in 1:K) {
   for (n in 1:N) {
     modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] +
                   data[, paste0("Var.ast.hat",1:K), n] +
                   data[,lab.var.hat.ast.lag , n])
-    
-    # Almacenar los coeficientes del modelo en la lista
-    # coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
-    # i=i+1
-    # coef.modelo[i,] <- coef(modelo)
-    # list.cov[[paste("k", k, "n", n, sep = "_")]] <- sqrt(diag(vcovHC(modelo)))
+    # Almacenar los coeficientes del modelo en el array
+    coef.Mu[k,n]      = coef(modelo)[1]
+    coef.Beta[k,,n]   = coef(modelo)[(1+1):(1+K*P)]
+    coef.Theta[k,,n]  = coef(modelo)[(1+K*P +1):(1+K*P +K)]
+    coef.Lambda[k,,n] = coef(modelo)[(1+K*P+K+1):(1+K*P+K+K*P)]
   }
 }
 
+print(coef.Mu)
+print(coef.Beta)
+print(coef.Theta)
+print(coef.Lambda)
 
 #IVREG
 # for (k in 1:K) {
