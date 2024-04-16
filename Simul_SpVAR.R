@@ -110,7 +110,6 @@ for (p in 1:P) {
 data <- abind(data, Y.Lag, Y.ast.Lag, along = 2)
 
 # Ecuación 30
-# Y.ast.hat.temp    = list()
 Y.ast.hat         = array(NA, dim = c(T, K, N),dimnames=list(paste0("t", 1:T),
                                                              paste0("Var.ast.hat", 1:K),
                                                              paste0("Reg", 1:N)))
@@ -138,13 +137,12 @@ for (p in 1:P) {
 data <- abind(data, Y.ast.hat, Y.ast.hat.lag, along = 2)
 
 #Ecuacion 16a
-#coef.modelo = list()
 coef.Mu     = array(NA, dim=c(K,N), dimnames=list(paste0("Var",1:K),paste0("Reg",1:N)))
 coef.Beta   = array(NA, dim=c(K,K*P,N), dimnames=list(paste0("Var.",1:K), lab.vars.lag, paste0("Reg",1:N)))
 coef.Theta  = array(NA, dim=c(K,K,N),dimnames=list(paste0("Var.ast.hat",1:K),paste0("Var.ast.hat",1:K), paste0("Reg", 1:N)))
 coef.Lambda = array(NA, dim=c(K,K*P,N), dimnames=list(paste0("Var.",1:K), lab.var.hat.ast.lag, paste0("Reg",1:N)))
 num.coef = 1 + K + (K*P) + (K*P)
-#LM
+#----- Estimacion del modelo SP-VAR obtenido de la segunda etapa -----#
 for (k in 1:K) {
   for (n in 1:N) {
     modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] +
@@ -158,48 +156,25 @@ for (k in 1:K) {
   }
 }
 
-print(coef.Mu)
-print(coef.Beta)
-print(coef.Theta)
-print(coef.Lambda)
-
-thetamono = matrix(0, nrow = (K*N), ncol = (K*N))
-i=0
-for (k in 1:K){
-  for (n in 1:N){
-    i=i+1
-    thetamono[i,1:2] = coef.Theta[k,,n]
-  }
+if(0){
+ print(coef.Mu)
+ print(coef.Beta)
+ print(coef.Theta)
+ print(coef.Lambda)
 }
 
-thetamono[1,1:2] = coef.Theta[1,,1]
-thetamono[2,1:2] = coef.Theta[2,,1]
-thetamono[3,3:4] = coef.Theta[1,,2]
-thetamono[4,3:4] = coef.Theta[2,,2]
-thetamono[5,5:6] = coef.Theta[1,,3]
-thetamono[6,5:6] = coef.Theta[2,,3]
-thetamono[7,7:8] = coef.Theta[1,,4]
-thetamono[8,7:8] = coef.Theta[2,,4]
+# Construccion de las matrices tilde usadas para calcular la IRF 
+coef.Theta.tilde = matrix(0, nrow = K*N, ncol = K*N)
+for (n in 1:N)
+  coef.Theta.tilde[((n-1)*K+1):(n*K), ((n-1)*K+1):(n*K)] = coef.Theta[,,n]
+
+
 
 #FUNCION DE IMPULSO RESPUESTA
 wkron              = kronecker(diag(K),W)
 theta.tilde.array  = kronecker(diag(N),coef.Theta)
 beta.tilde.array   = kronecker(diag(N),coef.Beta)
 lambda.tilde.array = kronecker(diag(N),coef.Lambda)
-
-
-
-
-
-theta.tilde  = array(theta.tilde.array, dim = c(32, 8))
-theta.tilde  = as.matrix(theta.tilde)
-beta.tilde   = array(beta.tilde.array, dim = c(8, 32))
-beta.tilde   = as.matrix(beta.tilde)
-lambda.tilde = array(lambda.tilde.array, dim = c(32, 32))
-lambda.tilde = as.matrix(lambda.tilde)
-
-
-theta.tilde.array%*%wkron
 
 resul  = array(NA, dim = J+1)
 for (j in 1:J){
