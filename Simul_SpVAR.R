@@ -163,64 +163,43 @@ print(coef.Beta)
 print(coef.Theta)
 print(coef.Lambda)
 
-#IVREG
-# for (k in 1:K) {
-#   for (n in 1:N) {
-#     # Modelo con variables instrumentales
-#     data_df <- as.data.frame(data)
-#     modelo <- ivreg(data[, paste0('Var', k), n] ~ data[, lab.vars.lag, n]  
-#                     | data[, paste0("Var.ast.hat",1:K), n] +
-#                       data[, lab.var.hat.ast.lag , n], data = data_df)
-#     
-#     # Almacenar los coeficientes del modelo en la lista
-#     coef.modelo[k*n,] <- coef(modelo)
-#     
-#     # Calcular intervalos de confianza para los coeficientes
-#     intervalos_confianza <- confint(modelo)
-#     print(intervalos_confianza)  # Esto imprimirá los intervalos de confianza en la consola
-#   }
-# }
+thetamono = matrix(0, nrow = (K*N), ncol = (K*N))
+i=0
+for (k in 1:K){
+  for (n in 1:N){
+    i=i+1
+    thetamono[i,1:2] = coef.Theta[k,,n]
+  }
+}
+
+thetamono[1,1:2] = coef.Theta[1,,1]
+thetamono[2,1:2] = coef.Theta[2,,1]
+thetamono[3,3:4] = coef.Theta[1,,2]
+thetamono[4,3:4] = coef.Theta[2,,2]
+thetamono[5,5:6] = coef.Theta[1,,3]
+thetamono[6,5:6] = coef.Theta[2,,3]
+thetamono[7,7:8] = coef.Theta[1,,4]
+thetamono[8,7:8] = coef.Theta[2,,4]
+
 #FUNCION DE IMPULSO RESPUESTA
-wkron = kronecker(diag(K),W)
-coef(modelo)
-theta  = coef.modelo[,(1+(P*K)+1):(1+(P*K)+K)]
-beta   = coef.modelo[,(1+1):(1+(P*K))]
-lambda = coef.modelo[,(1+(P*K)+K+1):(1+(P*K)+K+(P*K))]
-theta  = kronecker(diag(N),theta)
-beta   = kronecker(diag(N),beta)
-lambda = kronecker(diag(N),lambda)
-
-theta       = coef.modelo[,(1+(P*K)+1)]
-thetak      = matrix(0, nrow = length(theta), ncol = length(theta))
-diag(thetak) = theta
+wkron              = kronecker(diag(K),W)
+theta.tilde.array  = kronecker(diag(N),coef.Theta)
+beta.tilde.array   = kronecker(diag(N),coef.Beta)
+lambda.tilde.array = kronecker(diag(N),coef.Lambda)
 
 
-# for (i in (1+(P*K)+1):(1+(P*K)+K)){
-#   theta       = coef.modelo[,i]
-#   paste0("thetak",i) = matrix(0, nrow = length(theta), ncol = length(theta))
-#   diag(paste0("thetak",i)) = theta
-# }
 
-NK = N*K
-c  = 0
-matrices_theta <- array(0, dim = c(NK,NK, K))
-for (i in (1+(P*K)+1):(1+(P*K)+K)) {
-  theta <- coef.modelo[,i]
-  thetak <- matrix(0, nrow = NK, ncol = NK)
-  diag(thetak) <- theta
-  c = c+1
-  matrices_theta[,,c] <- thetak
-}
-NK = N*K
-c  = 0
-matrices_theta <- array(0, dim = c(NK,NK, K))
-for (i in (1+(P*K)+1):(1+(P*K)+K)) {
-  theta <- coef.modelo[,i]
-  thetak <- matrix(0, nrow = NK, ncol = NK)
-  diag(thetak) <- theta
-  c = c+1
-  matrices_theta[,,c] <- thetak
-}
+
+
+theta.tilde  = array(theta.tilde.array, dim = c(32, 8))
+theta.tilde  = as.matrix(theta.tilde)
+beta.tilde   = array(beta.tilde.array, dim = c(8, 32))
+beta.tilde   = as.matrix(beta.tilde)
+lambda.tilde = array(lambda.tilde.array, dim = c(32, 32))
+lambda.tilde = as.matrix(lambda.tilde)
+
+
+theta.tilde.array%*%wkron
 
 resul  = array(NA, dim = J+1)
 for (j in 1:J){
