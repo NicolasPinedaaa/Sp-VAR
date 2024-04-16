@@ -66,6 +66,7 @@ N  = 4  # Regiones
 K  = 2  # Variables
 T  = 20 #Tiempo
 P  = 2  #Rezagos
+J  = 10 #Horizontes adelante
 
 
 # Generar las series de tiempo
@@ -118,7 +119,7 @@ for (k in 1:K) {
   for (n in 1:N) {
     modelo = lm(data[, paste0('Var',k), n] ~ data[, lab.vars.lag, n] + data[,lab.vars.ast.lag , n])
     # Almacenar los coeficientes del modelo en la lista
-    Y.ast.hat[c(-1,-2),k,n] = predict(modelo)
+    Y.ast.hat[c(-1:-P),k,n] = predict(modelo)
   }
 }
 
@@ -138,7 +139,8 @@ data <- abind(data, Y.ast.hat, Y.ast.hat.lag, along = 2)
 
 #Ecuacion 16a
 #coef.modelo = list()
-coef.modelo = array(NA, dim = c(K*N,11))
+num.coef = 1 + K + (K*P) + (K*P)
+coef.modelo = array(NA, dim = c(K*N,num.coef))
 list.cov = list()
 #LM
 i=0
@@ -176,25 +178,51 @@ for (k in 1:K) {
 # }
 #FUNCION DE IMPULSO RESPUESTA
 wkron = kronecker(diag(K),W)
-# for (k in 1:K){
-#   paste0("theta",k) = array(coef.modelo[,(1 + (P * K) + k)], dim = c(N,K),
-#                             dimnames=list(paste0("Reg", 1:N),paste0("Var", 1:K)))
-#   paste0("theta",k) = kronecker(diag(K),paste0("theta",k))
+coef(modelo)
+theta  = coef.modelo[,(1+(P*K)+1):(1+(P*K)+K)]
+beta   = coef.modelo[,(1+1):(1+(P*K))]
+lambda = coef.modelo[,(1+(P*K)+K+1):(1+(P*K)+K+(P*K))]
+theta  = kronecker(diag(N),theta)
+beta   = kronecker(diag(N),beta)
+lambda = kronecker(diag(N),lambda)
+
+theta       = coef.modelo[,(1+(P*K)+1)]
+thetak      = matrix(0, nrow = length(theta), ncol = length(theta))
+diag(thetak) = theta
+
+
+# for (i in (1+(P*K)+1):(1+(P*K)+K)){
+#   theta       = coef.modelo[,i]
+#   paste0("thetak",i) = matrix(0, nrow = length(theta), ncol = length(theta))
+#   diag(paste0("thetak",i)) = theta
 # }
 
-theta1 = array(coef.modelo[,(1 + (P * K) + 1)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
-                                            paste0("Var", 1:K)))
-theta1 = kronecker(diag(K),theta1)
+NK = N*K
+c  = 0
+matrices_theta <- array(0, dim = c(NK,NK, K))
+for (i in (1+(P*K)+1):(1+(P*K)+K)) {
+  theta <- coef.modelo[,i]
+  thetak <- matrix(0, nrow = NK, ncol = NK)
+  diag(thetak) <- theta
+  c = c+1
+  matrices_theta[,,c] <- thetak
+}
+NK = N*K
+c  = 0
+matrices_theta <- array(0, dim = c(NK,NK, K))
+for (i in (1+(P*K)+1):(1+(P*K)+K)) {
+  theta <- coef.modelo[,i]
+  thetak <- matrix(0, nrow = NK, ncol = NK)
+  diag(thetak) <- theta
+  c = c+1
+  matrices_theta[,,c] <- thetak
+}
 
-theta2 = array(coef.modelo[,(1 + (P * K) + K)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
-                                                                           paste0("Var", 1:K)))
-theta2 = kronecker(diag(K),theta2)
-theta=cbind(theta1,theta2)
+resul  = array(NA, dim = J+1)
+for (j in 1:J){
+  resul.j <- ((solve(diag(N*K)-(theta*wkron)))*(beta+(lambda*wkron)))^{j}
+  resul[j] <- resul.j
+}
 
-for (i in K*p){
-  beta1 = array(coef.modelo[,(1 + 1)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
-                                                                paste0("Var", 1:K)))
-  beta1 = kronecker(diag(K),beta1)
-  beta1 = array(coef.modelo[,(1 + 1)], dim = c(N,K),dimnames=list(paste0("Reg", 1:N),
-                                                                paste0("Var", 1:K)))
-beta1 = kronecker(diag(K),beta1)
+
+
