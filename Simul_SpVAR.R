@@ -140,7 +140,7 @@ data <- abind(data, Y.ast.hat, Y.ast.hat.lag, along = 2)
 #Ecuacion 16a
 #coef.modelo = list()
 num.coef = 1 + K + (K*P) + (K*P)
-coef.modelo = array(NA, dim = c(K*N,num.coef))
+# coef.modelo = array(NA, dim = c(K,N,num.coef))
 list.cov = list()
 #LM
 i=0
@@ -152,8 +152,8 @@ for (k in 1:K) {
     
     # Almacenar los coeficientes del modelo en la lista
     # coef.modelo[[paste("k", k, "n", n, sep = "_")]] <- coef(modelo)
-    i=i+1
-    coef.modelo[i,] <- coef(modelo)
+    # i=i+1
+    # coef.modelo[i,] <- coef(modelo)
     # list.cov[[paste("k", k, "n", n, sep = "_")]] <- sqrt(diag(vcovHC(modelo)))
   }
 }
