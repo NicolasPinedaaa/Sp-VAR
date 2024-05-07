@@ -1,4 +1,4 @@
-#### SIMULACIONES ####
+ #### SIMULACIONES ####
 ####    S-VAR     ####
 
 #PAQUETES
@@ -7,6 +7,9 @@ require(sandwich)
 require(AER)
 
 set.seed(123)
+
+
+
 #---------------------x-------------------------
 #FUNCIONES
 #---------------------x-------------------------#
@@ -65,8 +68,8 @@ generar_matriz_contiguidad <- function(num_regiones) {
 N  = 4  # Regiones
 K  = 2  # Variables
 T  = 20 #Tiempo
-P  = 2  #Rezagos
-J  = 10 #Horizontes adelante
+P  = 1  #Rezagos
+H  = 20 #Horizontes adelante
 
 
 # Generar las series de tiempo
@@ -141,7 +144,8 @@ coef.Mu     = array(NA, dim=c(K,N), dimnames=list(paste0("Var",1:K),paste0("Reg"
 coef.Beta   = array(NA, dim=c(K,K*P,N), dimnames=list(paste0("Var.",1:K), lab.vars.lag, paste0("Reg",1:N)))
 coef.Theta  = array(NA, dim=c(K,K,N),dimnames=list(paste0("Var.ast.hat",1:K),paste0("Var.ast.hat",1:K), paste0("Reg", 1:N)))
 coef.Lambda = array(NA, dim=c(K,K*P,N), dimnames=list(paste0("Var.",1:K), lab.var.hat.ast.lag, paste0("Reg",1:N)))
-num.coef = 1 + K + (K*P) + (K*P)
+# residuos    = array()
+# num.coef = 1 + K + (K*P) + (K*P)
 #----- Estimacion del modelo SP-VAR obtenido de la segunda etapa -----#
 for (k in 1:K) {
   for (n in 1:N) {
@@ -153,6 +157,7 @@ for (k in 1:K) {
     coef.Beta[k,,n]   = coef(modelo)[(1+1):(1+K*P)]
     coef.Theta[k,,n]  = coef(modelo)[(1+K*P +1):(1+K*P +K)]
     coef.Lambda[k,,n] = coef(modelo)[(1+K*P+K+1):(1+K*P+K+K*P)]
+    
   }
 }
 
@@ -167,20 +172,46 @@ if(0){
 coef.Theta.tilde = matrix(0, nrow = K*N, ncol = K*N)
 for (n in 1:N)
   coef.Theta.tilde[((n-1)*K+1):(n*K), ((n-1)*K+1):(n*K)] = coef.Theta[,,n]
+coef.Beta.tilde = matrix(0, nrow = K*N, ncol = K*N)
+for (n in 1:N)
+  coef.Beta.tilde[((n-1)*K+1):(n*K), ((n-1)*K+1):(n*K)] = coef.Beta[,,n]
+coef.Lambda.tilde = matrix(0, nrow = K*N, ncol = K*N)
+for (n in 1:N)
+  coef.Lambda.tilde[((n-1)*K+1):(n*K), ((n-1)*K+1):(n*K)] = coef.Lambda[,,n]
+wkron = kronecker(diag(K),W)
 
 
+irf = array(NA, dim = c(K*N, K*N, H))
+sumatoria <- 0
+for (h in 0:(H-1)) {
+  sumatoria <- sumatoria + (
+      (
+        solve(diag(N * K) - (coef.Theta.tilde %*% wkron)) %*% 
+          (coef.Beta.tilde + (coef.Lambda.tilde %*% wkron))
+      ) ^ h
+    )
+  irf[,,h+1] <- sumatoria
+}
 
-#FUNCION DE IMPULSO RESPUESTA
-wkron              = kronecker(diag(K),W)
-theta.tilde.array  = kronecker(diag(N),coef.Theta)
-beta.tilde.array   = kronecker(diag(N),coef.Beta)
-lambda.tilde.array = kronecker(diag(N),coef.Lambda)
-
-resul  = array(NA, dim = J+1)
-for (j in 1:J){
-  resul.j <- ((solve(diag(N*K)-(theta*wkron)))*(beta+(lambda*wkron)))^{j}
-  resul[j] <- resul.j
+# Graficar IRF
+# Bucle para generar y guardar las gráficas una por una
+for (i in 1:N*K){
+  for (j in 1:N*K) {
+    # Establece el nombre del archivo PNG único para esta iteración
+    filename <- paste("IRF_Var_", i, "Var_", j, ".png", sep="")
+    
+    # Abre un nuevo dispositivo de gráficos para la nueva gráfica
+    png(filename)
+    
+    # Genera la gráfica
+    plot(irf[i, j, ], type = "l", xlab = "Time", ylab = "Value", 
+         main = "Impulse Response Function")
+    
+    # Finaliza la grabación del archivo PNG
+    dev.off()
+  }
 }
 
 
 
+#read.dta("C:/Users/nicol/Downloads/mmc1/JDE_replication_codes/pvarDATA_main.dta")
